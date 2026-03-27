@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { useBounties } from "@/hooks/use-bounties";
+import { useDebounce } from "@/hooks/use-debounce";
 import { BountyCard } from "@/components/bounty/bounty-card";
 import { BountyListSkeleton } from "@/components/bounty/bounty-card-skeleton";
 import { BountyError } from "@/components/bounty/bounty-error";
@@ -27,10 +28,76 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Search, Filter } from "lucide-react";
 import { MiniLeaderboard } from "@/components/leaderboard/mini-leaderboard";
+import type { BountyStatus, BountyType } from "@/types/bounty";
+import type { BountyQueryInput } from "@/lib/graphql/generated";
 
 export default function BountiesPage() {
-  const { data, isLoading, isError, error, refetch } = useBounties();
+  // Filters state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [selectedOrgs, setSelectedOrgs] = useState<string[]>([]);
+  const [rewardRange, setRewardRange] = useState<[number, number]>([0, 5000]);
+  const [statusFilter, setStatusFilter] = useState<string>("OPEN");
+  const [sortOption, setSortOption] = useState<string>("newest");
+  const [page, setPage] = useState(1);
+
+  // Constants for filters — aligned with backend enums
+  const BOUNTY_TYPES = [
+    { value: "FIXED_PRICE", label: "Fixed Price" },
+    { value: "MILESTONE_BASED", label: "Milestone Based" },
+    { value: "COMPETITION", label: "Competition" },
+  ];
+
+  const STATUSES = [
+    { value: "OPEN", label: "Open" },
+    { value: "IN_PROGRESS", label: "In Progress" },
+    { value: "COMPLETED", label: "Completed" },
+    { value: "CANCELLED", label: "Cancelled" },
+    { value: "DRAFT", label: "Draft" },
+    { value: "SUBMITTED", label: "Submitted" },
+    { value: "UNDER_REVIEW", label: "Under Review" },
+    { value: "DISPUTED", label: "Disputed" },
+    { value: "all", label: "All Statuses" },
+  ];
+
+  // Debounce search query to avoid excessive API calls
+  const debouncedSearchQuery = useDebounce(searchQuery, 500);
+
+  // Build GraphQL query parameters
+  // Note: The backend currently supports single type filtering.
+  // If multiple types are selected, we'll fetch all matching types sequentially or document as a limitation.
+  const queryParams: BountyQueryInput = {
+    page,
+    limit: 20,
+    ...(debouncedSearchQuery && { search: debouncedSearchQuery }),
+    ...(selectedTypes.length > 0 && { type: selectedTypes[0] as BountyType }),
+    ...(statusFilter !== "all" && { status: statusFilter as BountyStatus }),
+    // Note: sortBy/sortOrder handling below
+  };
+
+  // Map sort option to GraphQL parameters
+  const getSortParams = () => {
+    switch (sortOption) {
+      case "highest_reward":
+        return { sortBy: "rewardAmount", sortOrder: "desc" };
+      case "recently_updated":
+        return { sortBy: "updatedAt", sortOrder: "desc" };
+      case "newest":
+      default:
+        return { sortBy: "createdAt", sortOrder: "desc" };
+    }
+  };
+
+  const sortParams = getSortParams();
+  const finalQueryParams: BountyQueryInput = { ...queryParams, ...sortParams };
+
+  // Fetch data from server with filters
+  const { data, isLoading, isError, error, refetch } =
+    useBounties(finalQueryParams);
+
   const allBounties = useMemo(() => data?.data ?? [], [data?.data]);
+
+  // Extract available organizations from results for filter UI
   const organizations = useMemo(
     () =>
       Array.from(
@@ -39,110 +106,64 @@ export default function BountiesPage() {
     [allBounties],
   );
 
-  // Filters state
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
-  const [selectedOrgs, setSelectedOrgs] = useState<string[]>([]);
-  const [rewardRange, setRewardRange] = useState<[number, number]>([0, 5000]);
-  const [statusFilter, setStatusFilter] = useState<string>("open");
-  const [sortOption, setSortOption] = useState<string>("newest");
-
-  // Constants for filters — aligned with backend enums
-  const BOUNTY_TYPES = [
-    { value: "FIXED_PRICE", label: "Fixed Price" },
-    { value: "MILESTONE_BASED", label: "Milestone Based" },
-    { value: "COMPETITION", label: "Competition" },
-  ];
-  const STATUSES = [
-    { value: "open", label: "Open" },
-    { value: "in_progress", label: "In Progress" },
-    { value: "completed", label: "Completed" },
-    { value: "cancelled", label: "Cancelled" },
-    { value: "draft", label: "Draft" },
-    { value: "submitted", label: "Submitted" },
-    { value: "under_review", label: "Under Review" },
-    { value: "disputed", label: "Disputed" },
-    { value: "all", label: "All Statuses" },
-  ];
-
-  // Filter Logic
+  // Client-side filtering for features not yet supported by backend:
+  // 1. Reward range - backend doesn't support rewardMin/rewardMax yet
+  // 2. Multiple organization selection - backend supports single organizationId
+  // TODO: Move these to server-side once backend extends BountyQueryInput
   const filteredBounties = useMemo(() => {
-    return allBounties
-      .filter((bounty) => {
-        const searchLower = searchQuery.toLowerCase();
-        const matchesSearch =
-          searchQuery === "" ||
-          bounty.title.toLowerCase().includes(searchLower) ||
-          bounty.description.toLowerCase().includes(searchLower);
+    return allBounties.filter((bounty) => {
+      // Filter by reward range (client-side until backend support)
+      const amount = bounty.rewardAmount || 0;
+      const matchesReward =
+        amount >= rewardRange[0] && amount <= rewardRange[1];
 
-        const matchesType =
-          selectedTypes.length === 0 || selectedTypes.includes(bounty.type);
+      // Filter by selected organizations (client-side until backend supports array)
+      const matchesOrg =
+        selectedOrgs.length === 0 ||
+        (bounty.organization?.name &&
+          selectedOrgs.includes(bounty.organization.name));
 
-        const matchesOrg =
-          selectedOrgs.length === 0 ||
-          (bounty.organization?.name &&
-            selectedOrgs.includes(bounty.organization.name));
+      // Filter by multiple bounty types (client-side until backend supports array)
+      const matchesType =
+        selectedTypes.length === 0 || selectedTypes.includes(bounty.type);
 
-        const amount = bounty.rewardAmount || 0;
-        const matchesReward =
-          amount >= rewardRange[0] && amount <= rewardRange[1];
-
-        const matchesStatus =
-          statusFilter === "all" || bounty.status === statusFilter;
-
-        return (
-          matchesSearch &&
-          matchesType &&
-          matchesOrg &&
-          matchesReward &&
-          matchesStatus
-        );
-      })
-      .sort((a, b) => {
-        switch (sortOption) {
-          case "highest_reward":
-            return (b.rewardAmount || 0) - (a.rewardAmount || 0);
-          case "recently_updated":
-            return (
-              new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-            );
-          case "newest":
-          default:
-            return (
-              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-            );
-        }
-      });
-  }, [
-    allBounties,
-    searchQuery,
-    selectedTypes,
-    selectedOrgs,
-    rewardRange,
-    statusFilter,
-    sortOption,
-  ]);
+      return matchesReward && matchesOrg && matchesType;
+    });
+  }, [allBounties, rewardRange, selectedOrgs, selectedTypes]);
 
   // Handlers
   const toggleType = (type: string) => {
     setSelectedTypes((prev) =>
       prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type],
     );
+    setPage(1); // Reset to first page when filters change
   };
 
   const toggleOrg = useCallback((org: string) => {
     setSelectedOrgs((prev) =>
       prev.includes(org) ? prev.filter((o) => o !== org) : [...prev, org],
     );
+    setPage(1); // Reset to first page when filters change
   }, []);
+
+  const handleStatusChange = (status: string) => {
+    setStatusFilter(status);
+    setPage(1); // Reset to first page when filters change
+  };
+
+  const handleSortChange = (sort: string) => {
+    setSortOption(sort);
+    setPage(1); // Reset to first page when filters change
+  };
 
   const clearFilters = () => {
     setSearchQuery("");
     setSelectedTypes([]);
     setSelectedOrgs([]);
     setRewardRange([0, 5000]);
-    setStatusFilter("open");
+    setStatusFilter("OPEN");
     setSortOption("newest");
+    setPage(1);
   };
 
   return (
@@ -208,7 +229,7 @@ export default function BountiesPage() {
                     </Label>
                     <Select
                       value={statusFilter}
-                      onValueChange={setStatusFilter}
+                      onValueChange={handleStatusChange}
                     >
                       <SelectTrigger className="w-full border-gray-700 hover:border-gray-600 focus:border-primary/50 h-9">
                         <SelectValue placeholder="Select status" />
@@ -342,7 +363,7 @@ export default function BountiesPage() {
                 <span className="text-sm hidden sm:inline font-medium">
                   Sort by:
                 </span>
-                <Select value={sortOption} onValueChange={setSortOption}>
+                <Select value={sortOption} onValueChange={handleSortChange}>
                   <SelectTrigger className="w-44 focus:border-primary/50 h-9">
                     <SelectValue placeholder="Sort by" />
                   </SelectTrigger>
