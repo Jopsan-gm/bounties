@@ -76,6 +76,8 @@ export function BountyCard({
   variant = "grid",
 }: BountyCardProps) {
   const status = statusConfig[bounty.status];
+  const isFcfsClaimed =
+    bounty.type === "FIXED_PRICE" && bounty.status === "IN_PROGRESS";
   const timeLeft = bounty.updatedAt
     ? formatDistanceToNow(new Date(bounty.updatedAt), { addSuffix: true })
     : "N/A";
@@ -107,7 +109,7 @@ export function BountyCard({
             <div className="flex items-center gap-2">
               <div className={cn("w-2 h-2 rounded-full", status.dotColor)} />
               <Badge variant={status.variant} className="text-xs font-medium">
-                {status.label}
+                {isFcfsClaimed ? "Claimed" : status.label}
               </Badge>
             </div>
 

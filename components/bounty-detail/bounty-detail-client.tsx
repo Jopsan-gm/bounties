@@ -9,6 +9,7 @@ import { DescriptionCard } from "./bounty-detail-description-card";
 import { BountyDetailSubmissionsCard } from "./bounty-detail-submissions-card";
 import { BountyDetailSkeleton } from "./bounty-detail-bounty-detail-skeleton";
 import { useBountyDetail } from "@/hooks/use-bounty-detail";
+import { FcfsApprovalPanel } from "@/components/bounty/fcfs-approval-panel";
 
 export function BountyDetailClient({ bountyId }: { bountyId: string }) {
   const router = useRouter();
@@ -71,6 +72,7 @@ export function BountyDetailClient({ bountyId }: { bountyId: string }) {
         <HeaderCard bounty={bounty} />
         <DescriptionCard description={bounty.description} />
         <BountyDetailSubmissionsCard bounty={bounty} />
+        <FcfsApprovalPanel bounty={bounty} />
       </div>
 
       {/* Sidebar */}

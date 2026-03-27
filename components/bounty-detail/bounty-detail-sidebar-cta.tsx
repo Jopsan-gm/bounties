@@ -7,10 +7,12 @@ import { Separator } from "@/components/ui/separator";
 
 import { BountyFieldsFragment } from "@/lib/graphql/generated";
 import { StatusBadge, TypeBadge } from "./bounty-badges";
+import { FcfsClaimButton } from "@/components/bounty/fcfs-claim-button";
 
 export function SidebarCTA({ bounty }: { bounty: BountyFieldsFragment }) {
   const [copied, setCopied] = useState(false);
   const canAct = bounty.status === "OPEN";
+  const isFcfs = bounty.type === "FIXED_PRICE";
 
   const handleCopy = async () => {
     try {
@@ -64,7 +66,7 @@ export function SidebarCTA({ bounty }: { bounty: BountyFieldsFragment }) {
         <div className="space-y-3 text-sm">
           <div className="flex items-center justify-between text-gray-400">
             <span>Status</span>
-            <StatusBadge status={bounty.status} />
+            <StatusBadge status={bounty.status} type={bounty.type} />
           </div>
           <div className="flex items-center justify-between text-gray-400">
             <span>Type</span>
@@ -75,17 +77,25 @@ export function SidebarCTA({ bounty }: { bounty: BountyFieldsFragment }) {
         <Separator className="bg-gray-800/60" />
 
         {/* CTA */}
-        <Button
-          className="w-full h-11 font-bold tracking-wide"
-          disabled={!canAct}
-          size="lg"
-          onClick={() =>
-            canAct &&
-            window.open(bounty.githubIssueUrl, "_blank", "noopener,noreferrer")
-          }
-        >
-          {ctaLabel()}
-        </Button>
+        {isFcfs ? (
+          <FcfsClaimButton bounty={bounty} />
+        ) : (
+          <Button
+            className="w-full h-11 font-bold tracking-wide"
+            disabled={!canAct}
+            size="lg"
+            onClick={() =>
+              canAct &&
+              window.open(
+                bounty.githubIssueUrl,
+                "_blank",
+                "noopener,noreferrer",
+              )
+            }
+          >
+            {ctaLabel()}
+          </Button>
+        )}
 
         {!canAct && (
           <p className="flex items-center gap-1.5 text-xs text-gray-500 justify-center text-center">
@@ -129,6 +139,7 @@ export function SidebarCTA({ bounty }: { bounty: BountyFieldsFragment }) {
 
 export function MobileCTA({ bounty }: { bounty: BountyFieldsFragment }) {
   const canAct = bounty.status === "OPEN";
+  const isFcfs = bounty.type === "FIXED_PRICE";
 
   const label = () => {
     if (!canAct) {
@@ -146,17 +157,21 @@ export function MobileCTA({ bounty }: { bounty: BountyFieldsFragment }) {
 
   return (
     <div className="lg:hidden fixed bottom-0 left-0 right-0 p-4 bg-background/90 backdrop-blur-xl border-t border-gray-800/60 z-20">
-      <Button
-        className="w-full h-11 font-bold tracking-wide"
-        disabled={!canAct}
-        size="lg"
-        onClick={() =>
-          canAct &&
-          window.open(bounty.githubIssueUrl, "_blank", "noopener,noreferrer")
-        }
-      >
-        {label()}
-      </Button>
+      {isFcfs ? (
+        <FcfsClaimButton bounty={bounty} />
+      ) : (
+        <Button
+          className="w-full h-11 font-bold tracking-wide"
+          disabled={!canAct}
+          size="lg"
+          onClick={() =>
+            canAct &&
+            window.open(bounty.githubIssueUrl, "_blank", "noopener,noreferrer")
+          }
+        >
+          {label()}
+        </Button>
+      )}
     </div>
   );
 }
