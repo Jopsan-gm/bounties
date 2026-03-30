@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -119,7 +120,10 @@ export function useNotifications() {
 
   // Helper to update notifications with cache invalidation
   const addNotification = useCallback(
-    (item: NotificationItem, invalidateKeys?: readonly (readonly string[])[]) => {
+    (
+      item: NotificationItem,
+      invalidateKeys?: readonly (readonly string[])[],
+    ) => {
       setNotifications((prev) => upsertNotification(prev, item));
 
       if (invalidateKeys) {
@@ -228,16 +232,13 @@ export function useNotifications() {
 
   const isLoading = session === undefined || !hydrated;
 
-  const markAsRead = useCallback(
-    (id: string, type: NotificationType) => {
-      setNotifications((previous) =>
-        previous.map((item) =>
-          item.id === id && item.type === type ? { ...item, read: true } : item,
-        ),
-      );
-    },
-    [],
-  );
+  const markAsRead = useCallback((id: string, type: NotificationType) => {
+    setNotifications((previous) =>
+      previous.map((item) =>
+        item.id === id && item.type === type ? { ...item, read: true } : item,
+      ),
+    );
+  }, []);
 
   const markAllAsRead = useCallback(() => {
     setNotifications((previous) =>

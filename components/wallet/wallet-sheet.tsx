@@ -20,10 +20,13 @@ import {
   ExternalLink,
   ArrowUpRight,
   ArrowDownLeft,
+  Loader2,
+  LogOut,
 } from "lucide-react";
 import { WalletInfo } from "@/types/wallet";
 import { truncateStellarAddress } from "@/lib/mock-wallet";
 import { formatDistanceToNow } from "date-fns";
+import { useSmartWallet } from "@/components/providers/smart-wallet-provider";
 
 interface WalletSheetProps {
   walletInfo: WalletInfo;
@@ -31,7 +34,10 @@ interface WalletSheetProps {
 }
 
 export function WalletSheet({ walletInfo, trigger }: WalletSheetProps) {
+  const { disconnect, isLoading } = useSmartWallet();
   const [copied, setCopied] = useState(false);
+
+  // ... (rest of the component)
 
   const handleCopyAddress = async () => {
     try {
@@ -297,14 +303,39 @@ export function WalletSheet({ walletInfo, trigger }: WalletSheetProps) {
           </div>
 
           {/* Footer */}
-          <div className="pb-2 pt-2 text-center text-xs text-muted-foreground">
-            Need help?{" "}
-            <a
-              href="mailto:support@boundlessfi.xyz"
-              className="text-primary hover:underline font-medium"
+          <div className="space-y-4 pb-6 pt-4">
+            <Button
+              variant="destructive"
+              className="w-full flex items-center justify-center gap-2 h-12"
+              onClick={async () => {
+                if (walletInfo?.isConnected) {
+                  await disconnect();
+                }
+              }}
+              disabled={isLoading || !walletInfo?.isConnected}
             >
-              support@boundlessfi.xyz
-            </a>
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Disconnecting...
+                </>
+              ) : (
+                <>
+                  <LogOut className="h-4 w-4" />
+                  Disconnect Wallet
+                </>
+              )}
+            </Button>
+
+            <div className="text-center text-xs text-muted-foreground">
+              Need help?{" "}
+              <a
+                href="mailto:support@boundlessfi.xyz"
+                className="text-primary hover:underline font-medium"
+              >
+                support@boundlessfi.xyz
+              </a>
+            </div>
           </div>
         </div>
       </SheetContent>
