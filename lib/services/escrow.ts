@@ -77,6 +77,44 @@ export class EscrowService {
   private static cancellations: Record<string, CancellationRecord> = {};
 
   /**
+   * TEST-ONLY: Resets static properties to initial state to ensure tests
+   * do not bleed into each other due to static mutation.
+   */
+  static __resetForTesting() {
+    this.pools = {
+      "1": {
+        poolId: "1",
+        totalAmount: 500,
+        asset: "USDC",
+        isLocked: true,
+        expiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        releasedAmount: 0,
+        status: "Escrowed",
+      },
+      "2": {
+        poolId: "2",
+        totalAmount: 300,
+        asset: "USDC",
+        isLocked: true,
+        expiry: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
+        releasedAmount: 150,
+        status: "Partially Released",
+      },
+      "3": {
+        poolId: "3",
+        totalAmount: 200,
+        asset: "USDC",
+        isLocked: false,
+        expiry: null,
+        releasedAmount: 200,
+        status: "Fully Released",
+      },
+    };
+    // Note: slots are not modified by cancellation logic currently
+    this.cancellations = {};
+  }
+
+  /**
    * Get the escrow pool details for a given pool ID (usually bounty ID in our mock).
    */
   static async getPool(poolId: string): Promise<EscrowPool | null> {
@@ -185,6 +223,27 @@ export class EscrowService {
 
     this.cancellations[bountyId] = record;
     return record;
+  }
+
+  /**
+   * Reverts a cancellation by restoring the pool to its previous state.
+   */
+  static async revertCancel(bountyId: string): Promise<void> {
+    await this.simulateDelay(400);
+
+    const pool = this.pools[bountyId];
+    if (!pool) return;
+
+    // Restore status based on existing releasedAmount
+    const status = pool.releasedAmount > 0 ? "Partially Released" : "Escrowed";
+
+    this.pools[bountyId] = {
+      ...pool,
+      isLocked: true,
+      status,
+    };
+
+    delete this.cancellations[bountyId];
   }
 
   /**

@@ -23,19 +23,28 @@ export function useCancelBountyDialog(
     }
 
     setIsCancelling(true);
-    try {
-      // 1. Update bounty status via GraphQL first
-      await cancelBountyMutation.cancelAsync({
-        id: bountyId,
-        reason: cancelReason.trim(),
-      });
+    let record: CancellationRecord | null = null;
 
-      // 2. Trigger escrow refund (simulates on-chain call)
-      const record = await EscrowService.cancelBounty(
+    try {
+      // 1. Trigger escrow refund first (simulates on-chain call)
+      record = await EscrowService.cancelBounty(
         bountyId,
         session?.user?.id ?? "",
         cancelReason.trim(),
       );
+
+      // 2. Update bounty status via GraphQL
+      // If this fails, we must revert the escrow state
+      try {
+        await cancelBountyMutation.cancelAsync({
+          id: bountyId,
+          reason: cancelReason.trim(),
+        });
+      } catch (mutationErr) {
+        console.error("GraphQL mutation failed, reverting escrow:", mutationErr);
+        await EscrowService.revertCancel(bountyId);
+        throw mutationErr;
+      }
 
       toast.success("Bounty cancelled and refund initiated", {
         description: `${record.refund?.refundedAmount ?? 0} ${record.refund?.asset ?? ""} refunded`,

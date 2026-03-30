@@ -14,6 +14,7 @@ import {
   Check,
   AlertCircle,
 } from "lucide-react";
+import { toast } from "sonner";
 import { format } from "date-fns";
 import { useState } from "react";
 import type { RefundStatus } from "@/types/escrow";
@@ -140,8 +141,10 @@ export function RefundStatusTracker({
       await navigator.clipboard.writeText(refund.transactionHash);
       setCopiedHash(true);
       setTimeout(() => setCopiedHash(false), 2000);
-    } catch {
-      // clipboard write failed
+    } catch (err) {
+      console.error("Failed to copy hash:", err);
+      toast.error("Failed to copy transaction hash");
+      setCopiedHash(false);
     }
   };
 

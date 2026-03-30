@@ -1,9 +1,9 @@
 import { EscrowService } from "@/lib/services/escrow";
 
 describe("EscrowService - Cancellation & Refund", () => {
-  // Reset the static mock state between tests by re-importing
-  // EscrowService is a static singleton, so tests may have side effects
-  // on each other for the cancel/refund methods. We test in a careful order.
+  beforeEach(() => {
+    EscrowService.__resetForTesting();
+  });
 
   describe("cancelBounty", () => {
     it("should cancel a bounty and return a full refund for Escrowed pools", async () => {
@@ -26,15 +26,16 @@ describe("EscrowService - Cancellation & Refund", () => {
     });
 
     it("should update pool status to Refunded after cancellation", async () => {
-      // Pool 1 was already cancelled above, verify state
+      await EscrowService.cancelBounty("1", "user-123", "Reason");
       const pool = await EscrowService.getPool("1");
       expect(pool?.status).toBe("Refunded");
       expect(pool?.isLocked).toBe(false);
     });
 
     it("should throw when cancelling an already refunded pool", async () => {
+      await EscrowService.cancelBounty("1", "user-123", "First");
       await expect(
-        EscrowService.cancelBounty("1", "user-123", "test"),
+        EscrowService.cancelBounty("1", "user-123", "Second"),
       ).rejects.toThrow("already been refunded");
     });
 
@@ -62,6 +63,7 @@ describe("EscrowService - Cancellation & Refund", () => {
     });
 
     it("should throw for already refunded pool", async () => {
+      await EscrowService.refundAll("2");
       await expect(EscrowService.refundAll("2")).rejects.toThrow(
         "already been refunded",
       );
@@ -84,6 +86,7 @@ describe("EscrowService - Cancellation & Refund", () => {
 
   describe("getCancellation", () => {
     it("should return cancellation record for cancelled bounty", async () => {
+      await EscrowService.cancelBounty("1", "user-123", "Requirements changed");
       const record = await EscrowService.getCancellation("1");
       expect(record).not.toBeNull();
       expect(record!.bountyId).toBe("1");

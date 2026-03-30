@@ -242,14 +242,18 @@ export function useClaimBounty() {
 }
 
 /**
- * Hook to cancel a bounty and trigger escrow refund
- * Calls EscrowService.cancelBounty which simulates on-chain
- * BountyRegistry.cancel_bounty() + CoreEscrow.refund_all()
+ * Hook to cancel a bounty and update its status in the registry.
+ * This hook handles the GraphQL status update to "CANCELLED".
+ * Escrow cancellation/refund is handled separately via EscrowService.cancelBounty.
  *
- * @returns Mutation object with cancel method and refund result state
+ * @returns Mutation object with:
+ *  - cancel: (id: string, reason?: string) => void
+ *  - cancelAsync: (id: string, reason?: string) => Promise<any>
+ *  - isPending: boolean (standard TanStack Query state)
+ *
  * @example
- * const { cancel, isPending, refundResult } = useCancelBounty();
- * cancel({ bountyId: "123", reason: "No longer needed" });
+ * const { cancel, isPending } = useCancelBounty();
+ * cancel({ id: "123", reason: "Budget changed" });
  */
 export function useCancelBounty() {
   const queryClient = useQueryClient();
@@ -297,18 +301,16 @@ export function useCancelBounty() {
       { id, reason }: { id: string; reason?: string },
       options?: UpdateBountyMutateOptions,
     ) =>
-      mutation.mutate(
-        { input: { id, status: "CANCELLED", reason } as any },
-        options,
-      ),
+      // 'reason' is intentionally ignored in the GraphQL mutation because
+      // UpdateBountyInput does not support it. It is consumed by EscrowService.cancelBounty.
+      mutation.mutate({ input: { id, status: "CANCELLED" } }, options),
     cancelAsync: (
       { id, reason }: { id: string; reason?: string },
       options?: UpdateBountyMutateOptions,
     ) =>
-      mutation.mutateAsync(
-        { input: { id, status: "CANCELLED", reason } as any },
-        options,
-      ),
+      // 'reason' is intentionally ignored in the GraphQL mutation because
+      // UpdateBountyInput does not support it. It is consumed by EscrowService.cancelBounty.
+      mutation.mutateAsync({ input: { id, status: "CANCELLED" } }, options),
   };
 }
 
