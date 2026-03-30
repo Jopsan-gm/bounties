@@ -38,14 +38,17 @@ export type ConsistencyState =
   | "unverified"
   | "loading";
 
-function mapGraphQLStatusToOnChain(graphqlStatus: string): OnChainStatus {
+function mapGraphQLStatusToOnChain(
+  graphqlStatus: string,
+): OnChainStatus | null {
   const s = graphqlStatus.toUpperCase();
   if (s === "OPEN") return "open";
   if (s === "IN_PROGRESS") return "in_progress";
   if (s === "SUBMITTED" || s === "UNDER_REVIEW") return "submitted";
   if (s === "COMPLETED") return "approved";
   if (s === "CANCELLED") return "cancelled";
-  return "unknown";
+  // DRAFT and DISPUTED have no comparable on-chain state; skip conflict detection
+  return null;
 }
 
 async function fetchOnChainBountyStatus(
@@ -140,6 +143,7 @@ export function useOnChainBounty(bountyId: string) {
     if (!graphqlBounty) return "unverified";
 
     const expected = mapGraphQLStatusToOnChain(graphqlBounty.status);
+    if (expected === null) return "unverified";
     return expected === onChainData.status ? "consistent" : "conflict";
   })();
 
