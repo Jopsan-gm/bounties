@@ -80,8 +80,8 @@ export function StellarLink({
     if (!isValid) return "";
 
     try {
-      const detectedNetwork = network || getStellarNetwork(value);
-      
+      const detectedNetwork = network || getStellarNetwork();
+
       switch (type) {
         case "transaction":
           return getTransactionUrl(value, detectedNetwork, explorer);
@@ -103,7 +103,7 @@ export function StellarLink({
     if (linkText) return linkText;
     if (!value) return "";
     if (value.length <= maxLength) return value;
-    
+
     const start = value.slice(0, Math.ceil(maxLength / 2));
     const end = value.slice(-Math.floor(maxLength / 2));
     return `${start}...${end}`;
@@ -130,13 +130,15 @@ export function StellarLink({
   const tooltipText = React.useMemo(() => {
     if (!isValid) return `Invalid ${type}`;
     const prefix = tooltipPrefix || `View ${type}`;
-    const networkText = network || getStellarNetwork(value);
+    const networkText = network || getStellarNetwork();
     return `${prefix} on ${networkText} • ${explorer}`;
   }, [type, network, explorer, isValid, tooltipPrefix, value]);
 
   if (!value || !isValid) {
     return (
-      <span className={cn("text-muted-foreground font-mono text-sm", className)}>
+      <span
+        className={cn("text-muted-foreground font-mono text-sm", className)}
+      >
         {displayValue || "Invalid"}
       </span>
     );
@@ -156,7 +158,7 @@ export function StellarLink({
                 "transition-colors duration-200",
                 "font-mono text-sm",
                 "hover:underline",
-                "focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-1"
+                "focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-1",
               )}
             >
               <span>{displayValue}</span>
@@ -180,7 +182,7 @@ export function StellarLink({
                 className={cn(
                   "h-6 w-6 shrink-0",
                   copied && "text-green-600",
-                  copyError && "text-red-600"
+                  copyError && "text-red-600",
                 )}
                 aria-label={`Copy ${type} value`}
               >

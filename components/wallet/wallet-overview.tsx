@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { AccountLink } from "@/components/ui/stellar-link";
+import { getAccountUrl } from "@/lib/utils/stellar-explorer";
 import { WalletInfo } from "@/types/wallet";
 import { Calendar, ShieldCheck } from "lucide-react";
 
@@ -58,7 +59,7 @@ export function WalletOverview({ walletInfo }: WalletOverviewProps) {
 
       <Button variant="outline" className="w-full text-xs" size="sm" asChild>
         <a
-          href={`https://stellar.expert/explorer/public/account/${walletInfo.address}`}
+          href={getAccountUrl(walletInfo.address)}
           target="_blank"
           rel="noopener noreferrer"
         >

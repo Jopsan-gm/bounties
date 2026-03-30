@@ -45,22 +45,13 @@ const DEFAULT_NETWORK: StellarNetwork = "mainnet";
 const DEFAULT_EXPLORER = "stellar.expert";
 
 /**
- * Determines the Stellar network based on the address or transaction hash
- * @param addressOrHash - Stellar address or transaction hash
+ * Returns the configured Stellar network from environment variable.
  * @returns The network type (mainnet or testnet)
  */
-export function getStellarNetwork(addressOrHash: string): StellarNetwork {
-  // Testnet addresses typically start with 'G' and are testnet-specific
-  // This is a simplified detection - in production, you might want more sophisticated detection
-  if (addressOrHash.startsWith("G") && addressOrHash.length === 56) {
-    // You could maintain a list of known testnet prefixes or use other heuristics
-    // For now, we'll assume mainnet for most cases
-    return "mainnet";
-  }
-
-  // Testnet transaction hashes often have different patterns
-  // This is a placeholder - implement proper testnet detection based on your needs
-  return DEFAULT_NETWORK;
+export function getStellarNetwork(): StellarNetwork {
+  // Use environment variable for network configuration
+  const envNetwork = process.env.NEXT_PUBLIC_STELLAR_NETWORK as StellarNetwork;
+  return envNetwork === "testnet" ? "testnet" : DEFAULT_NETWORK;
 }
 
 /**
@@ -74,14 +65,33 @@ function getExplorerBaseUrl(explorer: string, network: StellarNetwork): string {
 
   // Handle different testnet URL patterns for different explorers
   if (network === "testnet") {
-    if (explorer === "stellar.expert") {
-      return "https://testnet.stellar.expert";
-    } else if (explorer === "stellarchain.io") {
+    if (explorer === "stellarchain.io") {
       return "https://testnet.stellarchain.io";
     }
   }
 
   return config.baseUrl;
+}
+
+/**
+ * Gets the explorer paths adjusted for the network.
+ * stellar.expert uses /explorer/testnet/ for testnet instead of /explorer/public/
+ */
+function getExplorerPaths(
+  explorer: string,
+  network: StellarNetwork,
+): ExplorerConfig["paths"] {
+  const config = EXPLORERS[explorer] || EXPLORERS[DEFAULT_EXPLORER];
+
+  if (network === "testnet" && explorer === "stellar.expert") {
+    return {
+      transaction: "/explorer/testnet/tx/",
+      account: "/explorer/testnet/account/",
+      contract: "/explorer/testnet/contract/",
+    };
+  }
+
+  return config.paths;
 }
 
 /**
@@ -100,11 +110,11 @@ export function getTransactionUrl(
     throw new Error("Transaction hash is required");
   }
 
-  const detectedNetwork = network || getStellarNetwork(txHash);
-  const config = EXPLORERS[explorer] || EXPLORERS[DEFAULT_EXPLORER];
+  const detectedNetwork = network || getStellarNetwork();
+  const paths = getExplorerPaths(explorer, detectedNetwork);
   const baseUrl = getExplorerBaseUrl(explorer, detectedNetwork);
 
-  return `${baseUrl}${config.paths.transaction}${txHash}`;
+  return `${baseUrl}${paths.transaction}${txHash}`;
 }
 
 /**
@@ -123,11 +133,11 @@ export function getAccountUrl(
     throw new Error("Account address is required");
   }
 
-  const detectedNetwork = network || getStellarNetwork(address);
-  const config = EXPLORERS[explorer] || EXPLORERS[DEFAULT_EXPLORER];
+  const detectedNetwork = network || getStellarNetwork();
+  const paths = getExplorerPaths(explorer, detectedNetwork);
   const baseUrl = getExplorerBaseUrl(explorer, detectedNetwork);
 
-  return `${baseUrl}${config.paths.account}${address}`;
+  return `${baseUrl}${paths.account}${address}`;
 }
 
 /**
@@ -146,11 +156,11 @@ export function getContractUrl(
     throw new Error("Contract ID is required");
   }
 
-  const detectedNetwork = network || getStellarNetwork(contractId);
-  const config = EXPLORERS[explorer] || EXPLORERS[DEFAULT_EXPLORER];
+  const detectedNetwork = network || getStellarNetwork();
+  const paths = getExplorerPaths(explorer, detectedNetwork);
   const baseUrl = getExplorerBaseUrl(explorer, detectedNetwork);
 
-  return `${baseUrl}${config.paths.contract}${contractId}`;
+  return `${baseUrl}${paths.contract}${contractId}`;
 }
 
 /**
@@ -177,7 +187,7 @@ export function getExplorerConfig(explorer: string): ExplorerConfig | null {
  */
 export function isValidStellarAddress(address: string): boolean {
   // Basic validation - Stellar addresses start with 'G' and are 56 characters long
-  return /^G[A-Z0-9]{55}$/.test(address);
+  return /^G[A-Z2-7]{55}$/.test(address);
 }
 
 /**
@@ -197,5 +207,5 @@ export function isValidStellarTxHash(hash: string): boolean {
  */
 export function isValidStellarContractId(contractId: string): boolean {
   // Soroban contract IDs start with 'C' and are 56 characters long
-  return /^C[A-Z0-9]{55}$/.test(contractId);
+  return /^C[A-Z2-7]{55}$/.test(contractId);
 }

@@ -3,6 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TransactionLink } from "@/components/ui/stellar-link";
 import { WalletActivity } from "@/types/wallet";
 import { format, isValid } from "date-fns";
 import { ArrowDownLeft, ArrowUpRight, Download, Search } from "lucide-react";
@@ -67,7 +68,7 @@ export function TransactionHistory({ activity }: TransactionHistoryProps) {
       item.description || "",
       item.amount.toString(),
       item.currency,
-      format(new Date(item.date), "yyyy-MM-dd HH:mm:ss"),
+      formatSafeDate(item.date, "yyyy-MM-dd HH:mm:ss"),
       item.transactionHash || "",
       item.status,
     ]);
