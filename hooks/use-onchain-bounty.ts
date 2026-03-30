@@ -2,22 +2,17 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { rpc, xdr, scValToNative, Address } from "@stellar/stellar-sdk";
+import { rpc, xdr, scValToNative } from "@stellar/stellar-sdk";
 import { useBounty } from "./use-bounty";
 import {
   contractEventPoller,
   type ParsedContractEvent,
 } from "@/lib/contracts/event-listener";
-
-const STELLAR_RPC_URL =
-  process.env.NEXT_PUBLIC_STELLAR_RPC_URL ||
-  "https://soroban-testnet.stellar.org";
-
-const BOUNTY_CONTRACT_ID = process.env.NEXT_PUBLIC_BOUNTY_CONTRACT_ID || "";
-
-const STELLAR_EXPLORER_URL =
-  process.env.NEXT_PUBLIC_STELLAR_EXPLORER_URL ||
-  "https://stellar.expert/explorer/testnet";
+import {
+  STELLAR_RPC_URL,
+  BOUNTY_CONTRACT_ID,
+  STELLAR_EXPLORER_URL,
+} from "@/lib/contracts/config";
 
 export type OnChainStatus =
   | "open"
