@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,13 +12,21 @@ import { BountyDetailSkeleton } from "./bounty-detail-bounty-detail-skeleton";
 import { useBountyDetail } from "@/hooks/use-bounty-detail";
 import { FcfsApprovalPanel } from "@/components/bounty/fcfs-approval-panel";
 import { EscrowDetailPanel } from "../bounty/escrow-detail-panel";
+import { RefundStatusTracker } from "../bounty/refund-status";
 import { FeeCalculator } from "../bounty/fee-calculator";
 import { useEscrowPool } from "@/hooks/use-escrow";
+import type { CancellationRecord } from "@/types/escrow";
 
 export function BountyDetailClient({ bountyId }: { bountyId: string }) {
   const router = useRouter();
   const { data: bounty, isPending, isError, error } = useBountyDetail(bountyId);
   const { data: pool } = useEscrowPool(bountyId);
+  const [cancellationRecord, setCancellationRecord] =
+    useState<CancellationRecord | null>(null);
+
+  const handleCancelled = useCallback((record: CancellationRecord) => {
+    setCancellationRecord(record);
+  }, []);
 
   if (isPending) return <BountyDetailSkeleton />;
 
@@ -69,13 +78,17 @@ export function BountyDetailClient({ bountyId }: { bountyId: string }) {
     );
   }
 
+  const isCancelled =
+    bounty.status === "CANCELLED" || cancellationRecord !== null;
+
   return (
     <div className="flex flex-col lg:flex-row gap-10">
       {/* Main content */}
       <div className="flex-1 min-w-0 space-y-6">
         <HeaderCard bounty={bounty} />
         <DescriptionCard description={bounty.description} />
-        {pool && <EscrowDetailPanel poolId={bountyId} />}
+        {!isCancelled && pool && <EscrowDetailPanel poolId={bountyId} />}
+        <RefundStatusTracker bountyId={bountyId} isCancelled={isCancelled} />
         <BountyDetailSubmissionsCard bounty={bounty} />
         {bounty.type === "FIXED_PRICE" && <FcfsApprovalPanel bounty={bounty} />}
       </div>
@@ -83,13 +96,13 @@ export function BountyDetailClient({ bountyId }: { bountyId: string }) {
       {/* Sidebar */}
       <aside className="w-full lg:w-72 shrink-0">
         <div className="lg:sticky lg:top-24 space-y-4">
-          <SidebarCTA bounty={bounty} />
+          <SidebarCTA bounty={bounty} onCancelled={handleCancelled} />
           <FeeCalculator />
         </div>
       </aside>
 
       {/* Mobile sticky CTA */}
-      <MobileCTA bounty={bounty} />
+      <MobileCTA bounty={bounty} onCancelled={handleCancelled} />
     </div>
   );
 }

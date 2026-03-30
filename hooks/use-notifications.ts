@@ -95,13 +95,25 @@ export function useNotifications() {
   );
   const [hydrated, setHydrated] = useState(() => Boolean(userId));
 
-  // Re-hydrate from localStorage when userId changes after initial render
+  // Sync state with userId changes during render
+  // This is faster than useEffect and avoids cascading renders
   const prevHydratedUserIdRef = useRef(userId);
   if (prevHydratedUserIdRef.current !== userId) {
     prevHydratedUserIdRef.current = userId;
     setNotifications(userId ? loadFromStorage(userId) : []);
     setHydrated(true);
   }
+
+  // Handle initial client-side hydration
+  useEffect(() => {
+    if (!hydrated) {
+      if (userId) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setNotifications(loadFromStorage(userId));
+      }
+      setHydrated(true);
+    }
+  }, [userId, hydrated]);
 
   // Persist to localStorage whenever notifications change
   useEffect(() => {
