@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useBounties } from "@/hooks/use-bounties";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -9,7 +9,6 @@ import { BountyListSkeleton } from "@/components/bounty/bounty-card-skeleton";
 import { BountyError } from "@/components/bounty/bounty-error";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import {
   Select,
@@ -28,54 +27,41 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Search, Filter } from "lucide-react";
 import { MiniLeaderboard } from "@/components/leaderboard/mini-leaderboard";
-import type { BountyStatus, BountyType } from "@/types/bounty";
-import type { BountyQueryInput } from "@/lib/graphql/generated";
+import {
+  BountyStatus,
+  BountyType,
+  type BountyQueryInput,
+} from "@/lib/graphql/generated";
 
 export default function BountiesPage() {
-  // Filters state
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
-  const [selectedOrgs, setSelectedOrgs] = useState<string[]>([]);
-  const [rewardRange, setRewardRange] = useState<[number, number]>([0, 5000]);
-  const [statusFilter, setStatusFilter] = useState<string>("OPEN");
+  const [selectedType, setSelectedType] = useState<BountyType | "all">("all");
+  const [statusFilter, setStatusFilter] = useState<BountyStatus | "all">(
+    BountyStatus.Open,
+  );
   const [sortOption, setSortOption] = useState<string>("newest");
   const [page, setPage] = useState(1);
 
-  // Constants for filters — aligned with backend enums
-  const BOUNTY_TYPES = [
-    { value: "FIXED_PRICE", label: "Fixed Price" },
-    { value: "MILESTONE_BASED", label: "Milestone Based" },
-    { value: "COMPETITION", label: "Competition" },
+  const BOUNTY_TYPES: { value: BountyType; label: string }[] = [
+    { value: BountyType.FixedPrice, label: "Fixed Price" },
+    { value: BountyType.MilestoneBased, label: "Milestone Based" },
+    { value: BountyType.Competition, label: "Competition" },
   ];
 
-  const STATUSES = [
-    { value: "OPEN", label: "Open" },
-    { value: "IN_PROGRESS", label: "In Progress" },
-    { value: "COMPLETED", label: "Completed" },
-    { value: "CANCELLED", label: "Cancelled" },
-    { value: "DRAFT", label: "Draft" },
-    { value: "SUBMITTED", label: "Submitted" },
-    { value: "UNDER_REVIEW", label: "Under Review" },
-    { value: "DISPUTED", label: "Disputed" },
+  const STATUSES: { value: BountyStatus | "all"; label: string }[] = [
+    { value: BountyStatus.Open, label: "Open" },
+    { value: BountyStatus.InProgress, label: "In Progress" },
+    { value: BountyStatus.Completed, label: "Completed" },
+    { value: BountyStatus.Cancelled, label: "Cancelled" },
+    { value: BountyStatus.Draft, label: "Draft" },
+    { value: BountyStatus.Submitted, label: "Submitted" },
+    { value: BountyStatus.UnderReview, label: "Under Review" },
+    { value: BountyStatus.Disputed, label: "Disputed" },
     { value: "all", label: "All Statuses" },
   ];
 
-  // Debounce search query to avoid excessive API calls
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
 
-  // Build GraphQL query parameters
-  // Note: The backend currently supports single type filtering.
-  // If multiple types are selected, we'll fetch all matching types sequentially or document as a limitation.
-  const queryParams: BountyQueryInput = {
-    page,
-    limit: 20,
-    ...(debouncedSearchQuery && { search: debouncedSearchQuery }),
-    ...(selectedTypes.length > 0 && { type: selectedTypes[0] as BountyType }),
-    ...(statusFilter !== "all" && { status: statusFilter as BountyStatus }),
-    // Note: sortBy/sortOrder handling below
-  };
-
-  // Map sort option to GraphQL parameters
   const getSortParams = () => {
     switch (sortOption) {
       case "highest_reward":
@@ -88,87 +74,51 @@ export default function BountiesPage() {
     }
   };
 
-  const sortParams = getSortParams();
-  const finalQueryParams: BountyQueryInput = { ...queryParams, ...sortParams };
-
-  // Fetch data from server with filters
-  const { data, isLoading, isError, error, refetch } =
-    useBounties(finalQueryParams);
-
-  const allBounties = useMemo(() => data?.data ?? [], [data?.data]);
-
-  // Extract available organizations from results for filter UI
-  const organizations = useMemo(
-    () =>
-      Array.from(
-        new Set(allBounties.map((b) => b.organization?.name).filter(Boolean)),
-      ).sort() as string[],
-    [allBounties],
-  );
-
-  // Client-side filtering for features not yet supported by backend:
-  // 1. Reward range - backend doesn't support rewardMin/rewardMax yet
-  // 2. Multiple organization selection - backend supports single organizationId
-  // TODO: Move these to server-side once backend extends BountyQueryInput
-  const filteredBounties = useMemo(() => {
-    return allBounties.filter((bounty) => {
-      // Filter by reward range (client-side until backend support)
-      const amount = bounty.rewardAmount || 0;
-      const matchesReward =
-        amount >= rewardRange[0] && amount <= rewardRange[1];
-
-      // Filter by selected organizations (client-side until backend supports array)
-      const matchesOrg =
-        selectedOrgs.length === 0 ||
-        (bounty.organization?.name &&
-          selectedOrgs.includes(bounty.organization.name));
-
-      // Filter by multiple bounty types (client-side until backend supports array)
-      const matchesType =
-        selectedTypes.length === 0 || selectedTypes.includes(bounty.type);
-
-      return matchesReward && matchesOrg && matchesType;
-    });
-  }, [allBounties, rewardRange, selectedOrgs, selectedTypes]);
-
-  // Handlers
-  const toggleType = (type: string) => {
-    setSelectedTypes((prev) =>
-      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type],
-    );
-    setPage(1); // Reset to first page when filters change
+  const queryParams: BountyQueryInput = {
+    page,
+    limit: 20,
+    ...(debouncedSearchQuery && { search: debouncedSearchQuery }),
+    ...(selectedType !== "all" && { type: selectedType }),
+    ...(statusFilter !== "all" && { status: statusFilter }),
+    ...getSortParams(),
   };
 
-  const toggleOrg = useCallback((org: string) => {
-    setSelectedOrgs((prev) =>
-      prev.includes(org) ? prev.filter((o) => o !== org) : [...prev, org],
-    );
-    setPage(1); // Reset to first page when filters change
-  }, []);
+  const { data, isLoading, isError, error, refetch } = useBounties(queryParams);
+
+  const bounties = data?.data ?? [];
+  const pagination = data?.pagination;
+  const totalResults = pagination?.total ?? 0;
+  const currentPage = pagination?.page ?? page;
+  const totalPages = pagination?.totalPages ?? 1;
+
+  const toggleType = (type: BountyType) => {
+    setSelectedType((prev) => (prev === type ? "all" : type));
+    setPage(1);
+  };
 
   const handleStatusChange = (status: string) => {
-    setStatusFilter(status);
-    setPage(1); // Reset to first page when filters change
+    setStatusFilter(status as BountyStatus | "all");
+    setPage(1);
   };
 
   const handleSortChange = (sort: string) => {
     setSortOption(sort);
-    setPage(1); // Reset to first page when filters change
+    setPage(1);
   };
 
   const clearFilters = () => {
     setSearchQuery("");
-    setSelectedTypes([]);
-    setSelectedOrgs([]);
-    setRewardRange([0, 5000]);
-    setStatusFilter("OPEN");
+    setSelectedType("all");
+    setStatusFilter(BountyStatus.Open);
     setSortOption("newest");
     setPage(1);
   };
 
+  const hasPreviousPage = currentPage > 1;
+  const hasNextPage = currentPage < totalPages;
+
   return (
     <div className="min-h-screen  text-foreground pb-20 relative overflow-hidden">
-      {/* Background ambient glow */}
       <div className="fixed top-0 left-0 w-full h-125 bg-primary/5 rounded-full blur-[120px] -translate-y-1/2 pointer-events-none" />
 
       <div className="container mx-auto px-4 py-12 relative z-10">
@@ -191,11 +141,8 @@ export default function BountiesPage() {
                     <Filter className="size-4" /> Filters
                   </h2>
                   {(searchQuery ||
-                    selectedTypes.length > 0 ||
-                    selectedOrgs.length > 0 ||
-                    rewardRange[0] !== 0 ||
-                    rewardRange[1] !== 5000 ||
-                    statusFilter !== "OPEN") && (
+                    selectedType !== "all" ||
+                    statusFilter !== BountyStatus.Open) && (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -208,7 +155,6 @@ export default function BountiesPage() {
                 </div>
 
                 <div className="space-y-6">
-                  {/* Search */}
                   <div className="space-y-2">
                     <Label className="text-xs font-medium">Search</Label>
                     <div className="relative group">
@@ -217,12 +163,14 @@ export default function BountiesPage() {
                         placeholder="Keywords..."
                         className="pl-9 h-9 text-sm"
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onChange={(e) => {
+                          setSearchQuery(e.target.value);
+                          setPage(1);
+                        }}
                       />
                     </div>
                   </div>
 
-                  {/* Status */}
                   <div className="space-y-2">
                     <Label className="text-xs font-medium text-gray-400">
                       Status
@@ -246,7 +194,6 @@ export default function BountiesPage() {
 
                   <Separator className="bg-gray-800/50" />
 
-                  {/* Bounty Type */}
                   <Accordion
                     type="single"
                     collapsible
@@ -266,7 +213,7 @@ export default function BountiesPage() {
                             >
                               <Checkbox
                                 id={`type-${type.value}`}
-                                checked={selectedTypes.includes(type.value)}
+                                checked={selectedType === type.value}
                                 onCheckedChange={() => toggleType(type.value)}
                                 className="border-gray-600 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                               />
@@ -281,66 +228,13 @@ export default function BountiesPage() {
                         </div>
                       </AccordionContent>
                     </AccordionItem>
-
-                    {/* Organization */}
-                    <AccordionItem
-                      value="organization"
-                      className="border-none mt-2"
-                    >
-                      <AccordionTrigger className="text-xs font-medium  hover:no-underline ">
-                        ORGANIZATION
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="space-y-2 pt-2 max-h-40 overflow-y-auto slim-scrollbar pr-2 leading-none">
-                          {organizations.map((org) => (
-                            <div
-                              key={org}
-                              className="flex items-center space-x-2.5 group py-0.5"
-                            >
-                              <Checkbox
-                                id={`org-${org}`}
-                                checked={selectedOrgs.includes(org)}
-                                onCheckedChange={() => toggleOrg(org)}
-                                className="border-gray-600 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                              />
-                              <Label
-                                htmlFor={`org-${org}`}
-                                className="text-sm font-normal cursor-pointer transition-colors truncate"
-                                title={org}
-                              >
-                                {org}
-                              </Label>
-                            </div>
-                          ))}
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-
-                    {/* Reward Range */}
-                    <AccordionItem value="reward" className="border-none mt-2">
-                      <AccordionTrigger className="text-xs font-medium  hover:no-underline ">
-                        REWARD RANGE
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="space-y-4 pt-2 px-1">
-                          <Slider
-                            defaultValue={[0, 5000]}
-                            max={5000}
-                            step={100}
-                            value={[rewardRange[0], rewardRange[1]]}
-                            onValueChange={(val) =>
-                              setRewardRange([val[0], val[1] ?? 5000])
-                            }
-                            className="my-4"
-                          />
-                          <div className="flex items-center justify-between text-[10px]  font-medium">
-                            <span>${rewardRange[0]}</span>
-                            <span>${rewardRange[1]}+</span>
-                          </div>
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
                   </Accordion>
+
+                  <p className="text-xs text-muted-foreground">
+                    Organization and reward-range filters are temporarily
+                    unavailable in this view because they are not yet supported
+                    by the backend query.
+                  </p>
                 </div>
               </div>
 
@@ -350,14 +244,11 @@ export default function BountiesPage() {
             </div>
           </aside>
 
-          {/* Main Content */}
           <main className="flex-1 min-w-0">
             <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4   backdrop-blur-sm">
               <div className="text-sm ">
-                <span className="font-semibold ">
-                  {filteredBounties.length}
-                </span>{" "}
-                results found
+                <span className="font-semibold ">{totalResults}</span> results
+                found
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-sm hidden sm:inline font-medium">
@@ -391,18 +282,44 @@ export default function BountiesPage() {
                 }
                 onRetry={() => refetch()}
               />
-            ) : filteredBounties.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 auto-rows-fr">
-                {filteredBounties.map((bounty) => (
-                  <Link
-                    key={bounty.id}
-                    href={`/bounty/${bounty.id}`}
-                    className="h-full block"
-                  >
-                    <BountyCard bounty={bounty} />
-                  </Link>
-                ))}
-              </div>
+            ) : bounties.length > 0 ? (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 auto-rows-fr">
+                  {bounties.map((bounty) => (
+                    <Link
+                      key={bounty.id}
+                      href={`/bounty/${bounty.id}`}
+                      className="h-full block"
+                    >
+                      <BountyCard bounty={bounty} />
+                    </Link>
+                  ))}
+                </div>
+
+                <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <p className="text-sm text-muted-foreground">
+                    Page {currentPage} of {totalPages}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!hasPreviousPage}
+                      onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!hasNextPage}
+                      onClick={() => setPage((prev) => prev + 1)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              </>
             ) : (
               <div className="flex flex-col items-center justify-center py-24 text-center border border-dashed border-gray-800 rounded-2xl bg-background-card/30">
                 <div className="size-16 rounded-full bg-gray-800/50 flex items-center justify-center mb-4">
