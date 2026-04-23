@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useBounties } from "@/hooks/use-bounties";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -33,55 +33,59 @@ import {
   type BountyQueryInput,
 } from "@/lib/graphql/generated";
 
+const BOUNTY_TYPES: { value: BountyType; label: string }[] = [
+  { value: BountyType.FixedPrice, label: "Fixed Price" },
+  { value: BountyType.MilestoneBased, label: "Milestone Based" },
+  { value: BountyType.Competition, label: "Competition" },
+];
+
+const STATUSES: { value: BountyStatus | "all"; label: string }[] = [
+  { value: "all", label: "All Statuses" },
+  { value: BountyStatus.Open, label: "Open" },
+  { value: BountyStatus.InProgress, label: "In Progress" },
+  { value: BountyStatus.Completed, label: "Completed" },
+  { value: BountyStatus.Cancelled, label: "Cancelled" },
+  { value: BountyStatus.Draft, label: "Draft" },
+  { value: BountyStatus.Submitted, label: "Submitted" },
+  { value: BountyStatus.UnderReview, label: "Under Review" },
+  { value: BountyStatus.Disputed, label: "Disputed" },
+];
+
+function getSortParams(sortOption: string) {
+  switch (sortOption) {
+    case "highest_reward":
+      return { sortBy: "rewardAmount", sortOrder: "desc" };
+    case "recently_updated":
+      return { sortBy: "updatedAt", sortOrder: "desc" };
+    case "newest":
+    default:
+      return { sortBy: "createdAt", sortOrder: "desc" };
+  }
+}
+
 export default function BountiesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState<BountyType | "all">("all");
-  const [statusFilter, setStatusFilter] = useState<BountyStatus | "all">(
-    BountyStatus.Open,
-  );
+  const [statusFilter, setStatusFilter] = useState<BountyStatus | "all">("all");
   const [sortOption, setSortOption] = useState<string>("newest");
   const [page, setPage] = useState(1);
 
-  const BOUNTY_TYPES: { value: BountyType; label: string }[] = [
-    { value: BountyType.FixedPrice, label: "Fixed Price" },
-    { value: BountyType.MilestoneBased, label: "Milestone Based" },
-    { value: BountyType.Competition, label: "Competition" },
-  ];
-
-  const STATUSES: { value: BountyStatus | "all"; label: string }[] = [
-    { value: BountyStatus.Open, label: "Open" },
-    { value: BountyStatus.InProgress, label: "In Progress" },
-    { value: BountyStatus.Completed, label: "Completed" },
-    { value: BountyStatus.Cancelled, label: "Cancelled" },
-    { value: BountyStatus.Draft, label: "Draft" },
-    { value: BountyStatus.Submitted, label: "Submitted" },
-    { value: BountyStatus.UnderReview, label: "Under Review" },
-    { value: BountyStatus.Disputed, label: "Disputed" },
-    { value: "all", label: "All Statuses" },
-  ];
-
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
+  // When the user clears the search input, drop the filter immediately instead
+  // of waiting for the debounce to flush the stale value.
+  const effectiveSearchQuery = searchQuery === "" ? "" : debouncedSearchQuery;
 
-  const getSortParams = () => {
-    switch (sortOption) {
-      case "highest_reward":
-        return { sortBy: "rewardAmount", sortOrder: "desc" };
-      case "recently_updated":
-        return { sortBy: "updatedAt", sortOrder: "desc" };
-      case "newest":
-      default:
-        return { sortBy: "createdAt", sortOrder: "desc" };
-    }
-  };
-
-  const queryParams: BountyQueryInput = {
-    page,
-    limit: 20,
-    ...(debouncedSearchQuery && { search: debouncedSearchQuery }),
-    ...(selectedType !== "all" && { type: selectedType }),
-    ...(statusFilter !== "all" && { status: statusFilter }),
-    ...getSortParams(),
-  };
+  const queryParams: BountyQueryInput = useMemo(
+    () => ({
+      page,
+      limit: 20,
+      ...(effectiveSearchQuery && { search: effectiveSearchQuery }),
+      ...(selectedType !== "all" && { type: selectedType }),
+      ...(statusFilter !== "all" && { status: statusFilter }),
+      ...getSortParams(sortOption),
+    }),
+    [page, effectiveSearchQuery, selectedType, statusFilter, sortOption],
+  );
 
   const { data, isLoading, isError, error, refetch } = useBounties(queryParams);
 
@@ -109,7 +113,7 @@ export default function BountiesPage() {
   const clearFilters = () => {
     setSearchQuery("");
     setSelectedType("all");
-    setStatusFilter(BountyStatus.Open);
+    setStatusFilter("all");
     setSortOption("newest");
     setPage(1);
   };
@@ -142,7 +146,7 @@ export default function BountiesPage() {
                   </h2>
                   {(searchQuery ||
                     selectedType !== "all" ||
-                    statusFilter !== BountyStatus.Open) && (
+                    statusFilter !== "all") && (
                     <Button
                       variant="ghost"
                       size="sm"
