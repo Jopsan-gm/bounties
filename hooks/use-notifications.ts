@@ -183,38 +183,36 @@ export function useNotifications() {
           // Get previous status from status map (derived from list cache)
           const statusMap = getBookmarkedStatusMap(queryClient);
 
-          // If no cached data, skip notification (avoid false positives)
-          if (statusMap === null) {
-            return;
-          }
+          // Only process notification if cached data exists (avoid false positives)
+          if (statusMap !== null) {
+            const previousStatus = statusMap.get(bounty.id);
 
-          const previousStatus = statusMap.get(bounty.id);
+            // Only notify if status changed (meaningful update)
+            if (
+              previousStatus === undefined ||
+              previousStatus !== bounty.status
+            ) {
+              const timestamp = Date.now();
+              addNotification(
+                {
+                  id: `saved-bounty-updated-${bounty.id}-${timestamp}`,
+                  message: `Saved bounty "${bounty.title}" was updated.`,
+                  type: "saved-bounty-updated",
+                  timestamp: normaliseTimestamp(bounty.updatedAt),
+                  read: false,
+                },
+                [],
+              );
 
-          // Only notify if status changed (meaningful update)
-          if (
-            previousStatus === undefined ||
-            previousStatus !== bounty.status
-          ) {
-            const timestamp = Date.now();
-            addNotification(
-              {
-                id: `saved-bounty-updated-${bounty.id}-${timestamp}`,
-                message: `Saved bounty "${bounty.title}" was updated.`,
-                type: "saved-bounty-updated",
-                timestamp: normaliseTimestamp(bounty.updatedAt),
-                read: false,
-              },
-              [],
-            );
-
-            // Update status cache to prevent duplicate notifications
-            queryClient.setQueryData<Record<string, string>>(
-              bookmarkKeys.statusCache(),
-              (old = {}) => ({
-                ...old,
-                [bounty.id]: bounty.status,
-              }),
-            );
+              // Update status cache to prevent duplicate notifications
+              queryClient.setQueryData<Record<string, string>>(
+                bookmarkKeys.statusCache(),
+                (old = {}) => ({
+                  ...old,
+                  [bounty.id]: bounty.status,
+                }),
+              );
+            }
           }
         }
 
