@@ -29,6 +29,9 @@ import { FcfsClaimButton } from "@/components/bounty/fcfs-claim-button";
 import { authClient } from "@/lib/auth-client";
 import type { CancellationRecord } from "@/types/escrow";
 import { useCancelBountyDialog } from "@/hooks/use-cancel-bounty-dialog";
+import { ApplicationDialog } from "@/components/bounty/application-dialog";
+import { Users } from "lucide-react";
+import { Bounty } from "@/types/bounty";
 
 interface SidebarCTAProps {
   bounty: BountyFieldsFragment;
@@ -112,6 +115,17 @@ export function SidebarCTA({ bounty, onCancelled }: SidebarCTAProps) {
             <span>Type</span>
             <TypeBadge type={bounty.type} />
           </div>
+          {bounty.type === "MULTI_WINNER_MILESTONE" && (
+            <div className="flex items-center justify-between text-gray-400">
+              <span className="flex items-center gap-1.5">
+                <Users className="size-3.5" /> Slots
+              </span>
+              <span className="font-medium text-gray-200">
+                {(bounty as unknown as Bounty).totalSlotsOccupied || 0} /{" "}
+                {(bounty as unknown as Bounty).maxSlots || 5}
+              </span>
+            </div>
+          )}
         </div>
 
         <Separator className="bg-gray-800/60" />
@@ -119,6 +133,30 @@ export function SidebarCTA({ bounty, onCancelled }: SidebarCTAProps) {
         {/* CTA */}
         {isFcfs ? (
           <FcfsClaimButton bounty={bounty} />
+        ) : bounty.type === "MULTI_WINNER_MILESTONE" ? (
+          <ApplicationDialog
+            bountyTitle={bounty.title}
+            onApply={async (data) => {
+              console.log("Applying for slot:", data);
+              return true;
+            }}
+            trigger={
+              <Button
+                className="w-full h-11 font-bold tracking-wide"
+                disabled={
+                  !canAct ||
+                  ((bounty as unknown as Bounty).totalSlotsOccupied || 0) >=
+                    ((bounty as unknown as Bounty).maxSlots || 5)
+                }
+                size="lg"
+              >
+                {((bounty as unknown as Bounty).totalSlotsOccupied || 0) >=
+                ((bounty as unknown as Bounty).maxSlots || 5)
+                  ? "Slots Full"
+                  : "Apply for Slot"}
+              </Button>
+            }
+          />
         ) : (
           <Button
             className="w-full h-11 font-bold tracking-wide"
