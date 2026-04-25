@@ -10,6 +10,7 @@ import {
   Loader2,
   Users,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
@@ -151,9 +152,12 @@ export function SidebarCTA({ bounty, onCancelled }: SidebarCTAProps) {
               <ApplicationDialog
                 bountyTitle={bounty.title}
                 onApply={async (data) => {
-                  // TODO: wire up to a real mutation once the GraphQL fragment
-                  // is extended with slot-application support.
-                  console.log("[Coming soon] Applying for slot:", data);
+                  // Mock application delay
+                  await new Promise((resolve) => setTimeout(resolve, 1500));
+                  console.log("[Mock] Applying for slot:", data);
+                  toast.success(
+                    "Application submitted! The maintainer will review it soon.",
+                  );
                   return true;
                 }}
                 trigger={

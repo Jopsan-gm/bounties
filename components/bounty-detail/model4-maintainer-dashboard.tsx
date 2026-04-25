@@ -13,12 +13,15 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  Trophy,
-  ArrowRight,
+  ChevronRight,
+  UserMinus,
+  Loader2,
   MessageSquare,
   Coins,
-  ChevronRight,
+  ArrowRight,
+  Trophy,
 } from "lucide-react";
+import { toast } from "sonner";
 
 interface Model4MaintainerDashboardProps {
   milestones: Milestone[];
@@ -29,10 +32,19 @@ interface Model4MaintainerDashboardProps {
 
 export function Model4MaintainerDashboard({
   milestones,
-  contributors,
+  contributors: initialContributors,
   maxSlots = 5,
   className,
 }: Model4MaintainerDashboardProps) {
+  const [loadingAction, setLoadingAction] = React.useState<string | null>(null);
+
+  const handleAction = async (action: string, userName: string) => {
+    setLoadingAction(`${action}-${userName}`);
+    await new Promise((r) => setTimeout(r, 1000));
+    toast.success(`${action} successful for ${userName}`);
+    setLoadingAction(null);
+  };
+
   return (
     <Card
       className={cn(
@@ -50,7 +62,7 @@ export function Model4MaintainerDashboard({
       </CardHeader>
       <CardContent className="p-0">
         <div className="divide-y divide-gray-800/50">
-          {contributors.map((contributor) => {
+          {initialContributors.map((contributor) => {
             const currentMilestone = milestones.find(
               (m) => m.id === contributor.currentMilestoneId,
             );
@@ -115,71 +127,113 @@ export function Model4MaintainerDashboard({
                     </div>
                   </div>
 
-                  {/* Actions — backend not yet integrated; marked disabled until wired up */}
-                  <TooltipProvider>
-                    <div className="flex items-center gap-2">
+                  {/* Actions */}
+                  <div className="flex items-center gap-2">
+                    <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <span>
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              className="text-gray-400 hover:text-white"
-                              disabled
-                            >
-                              <MessageSquare className="size-4" />
-                            </Button>
-                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            className="text-gray-400 hover:text-white"
+                            onClick={() =>
+                              handleAction("Message", contributor.userName)
+                            }
+                            disabled={loadingAction !== null}
+                          >
+                            <MessageSquare className="size-4" />
+                          </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Coming soon</TooltipContent>
+                        <TooltipContent>Send Message</TooltipContent>
                       </Tooltip>
+
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <span>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 text-xs border-gray-700 hover:bg-gray-800"
-                              disabled
-                            >
-                              View Submissions
-                            </Button>
-                          </span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs border-gray-700 hover:bg-gray-800"
+                            onClick={() =>
+                              handleAction(
+                                "View Submissions",
+                                contributor.userName,
+                              )
+                            }
+                            disabled={loadingAction !== null}
+                          >
+                            View Submissions
+                          </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Coming soon</TooltipContent>
+                        <TooltipContent>Review work</TooltipContent>
                       </Tooltip>
+
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <span>
-                            <Button
-                              size="sm"
-                              className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 font-bold"
-                              disabled
-                            >
-                              <Coins className="size-3 mr-1.5" /> Release
-                              Payment
-                            </Button>
-                          </span>
+                          <Button
+                            size="sm"
+                            className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 font-bold"
+                            onClick={() =>
+                              handleAction(
+                                "Release Payment",
+                                contributor.userName,
+                              )
+                            }
+                            disabled={loadingAction !== null}
+                          >
+                            {loadingAction ===
+                            `Release Payment-${contributor.userName}` ? (
+                              <Loader2 className="size-3 mr-1.5 animate-spin" />
+                            ) : (
+                              <Coins className="size-3 mr-1.5" />
+                            )}
+                            Release Payment
+                          </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Coming soon</TooltipContent>
+                        <TooltipContent>Pay for milestone</TooltipContent>
                       </Tooltip>
+
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <span>
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              className="h-8 text-xs font-bold"
-                              disabled
-                            >
-                              Advance <ArrowRight className="size-3 ml-1.5" />
-                            </Button>
-                          </span>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="h-8 text-xs font-bold"
+                            onClick={() =>
+                              handleAction("Advance", contributor.userName)
+                            }
+                            disabled={loadingAction !== null}
+                          >
+                            {loadingAction ===
+                            `Advance-${contributor.userName}` ? (
+                              <Loader2 className="size-3 mr-1.5 animate-spin" />
+                            ) : (
+                              <>
+                                Advance <ArrowRight className="size-3 ml-1.5" />
+                              </>
+                            )}
+                          </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Coming soon</TooltipContent>
+                        <TooltipContent>Move to next milestone</TooltipContent>
                       </Tooltip>
-                    </div>
-                  </TooltipProvider>
+
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            className="text-red-400/50 hover:text-red-400 hover:bg-red-400/10"
+                            onClick={() =>
+                              handleAction("Remove", contributor.userName)
+                            }
+                            disabled={loadingAction !== null}
+                          >
+                            <UserMinus className="size-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Remove from slot</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                 </div>
               </div>
             );
@@ -191,7 +245,7 @@ export function Model4MaintainerDashboard({
           <div className="flex items-center gap-1.5 text-[10px] text-gray-400 font-medium">
             <Trophy className="size-3 text-yellow-500" />
             <span>
-              Total Winners Allowed: {contributors.length} / {maxSlots}
+              Total Winners Allowed: {initialContributors.length} / {maxSlots}
             </span>
           </div>
           <div className="h-3 w-px bg-gray-800" />

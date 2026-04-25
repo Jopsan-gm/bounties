@@ -25,15 +25,14 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MilestoneSubmissionCard } from "./milestone-submission-card";
 import { Model4MaintainerDashboard } from "./model4-maintainer-dashboard";
+import type { Milestone, ContributorProgress } from "@/types/bounty";
+
+type BountyData = ReturnType<typeof useBountyDetail>["data"];
 
 /** Returns milestones with mock fallback. Safe for public display since
  * milestones are structural (titles/descriptions), not personal data.
  */
-function getMilestones(
-  bounty: ReturnType<
-    (typeof import("@/hooks/use-bounty-detail"))["useBountyDetail"]
-  >["data"],
-): import("@/types/bounty").Milestone[] {
+function getMilestones(bounty: BountyData): Milestone[] {
   return bounty?.milestones ?? MOCK_MODEL4_MILESTONES;
 }
 
@@ -41,11 +40,7 @@ function getMilestones(
  * Used for the public MilestoneFunnel to prevent mock users (Alice, Bob…)
  * from being displayed to unauthenticated visitors.
  */
-function getRealContributors(
-  bounty: ReturnType<
-    (typeof import("@/hooks/use-bounty-detail"))["useBountyDetail"]
-  >["data"],
-): import("@/types/bounty").ContributorProgress[] {
+function getRealContributors(bounty: BountyData): ContributorProgress[] {
   return bounty?.contributorProgress ?? [];
 }
 
@@ -53,13 +48,9 @@ function getRealContributors(
  * Used only in authenticated sections (contributor progress card,
  * maintainer dashboard) where mocks are acceptable during prototyping.
  */
-function getFullMilestoneData(
-  bounty: ReturnType<
-    (typeof import("@/hooks/use-bounty-detail"))["useBountyDetail"]
-  >["data"],
-): {
-  milestones: import("@/types/bounty").Milestone[];
-  contributorProgress: import("@/types/bounty").ContributorProgress[];
+function getFullMilestoneData(bounty: BountyData): {
+  milestones: Milestone[];
+  contributorProgress: ContributorProgress[];
 } {
   return {
     milestones: bounty?.milestones ?? MOCK_MODEL4_MILESTONES,
